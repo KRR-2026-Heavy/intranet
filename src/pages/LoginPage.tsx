@@ -63,7 +63,7 @@ export default function LoginPage({ role }: LoginPageProps) {
           <Link className="login-brand__link" to="/login" aria-label="Back to login options">
             <img
               className="login-brand__logo"
-              src="/images/KRR new logo.avif"
+              src="/images/krr-engineering-logo.png"
               alt="KRR Engineering Private Limited"
             />
           </Link>

@@ -8,6 +8,9 @@ import type { AdminDashboardOverview, ManagedContentCategory } from '../types/ad
 import AdminContentManager from './AdminContentManager'
 import AdminDepartmentManager from './AdminDepartmentManager'
 import AdminEmployeeManager from './AdminEmployeeManager'
+import AdminPolicyDocumentManager from './AdminPolicyDocumentManager'
+import AdminOrganizationChartManager from './AdminOrganizationChartManager'
+import AdminThirukkuralManager from './AdminThirukkuralManager'
 import { getPageBackgroundStyle } from '../config/pageBackgrounds'
 
 const sections: Array<{
@@ -24,6 +27,7 @@ const sections: Array<{
   { slug: 'meeting-updates', title: 'Meeting Updates', category: 'meetings' },
   { slug: 'holiday-management', title: 'Holiday Management', category: 'holidays' },
   { slug: 'company-policies', title: 'Company Policies', category: 'policies' },
+  { slug: 'organization-chart', title: 'Organization Chart' },
 ]
 
 const categoryCards: Array<{ category: ManagedContentCategory; title: string; slug: string }> = [
@@ -128,11 +132,22 @@ export default function AdminDashboard() {
             <span className="admin-role-badge">ADMIN</span>
           </div>
 
-          {activeSection.category ? (
-            <AdminContentManager
-              category={activeSection.category}
-              title={activeSection.title}
-            />
+          {activeSection.slug === 'organization-chart' ? (
+            <AdminOrganizationChartManager />
+          ) : activeSection.category ? (
+            activeSection.category === 'policies' ? (
+              <AdminPolicyDocumentManager />
+            ) : activeSection.category === 'thoughts' ? (
+              <>
+                <AdminThirukkuralManager />
+                <AdminContentManager category={activeSection.category} title={activeSection.title} />
+              </>
+            ) : (
+              <AdminContentManager
+                category={activeSection.category}
+                title={activeSection.title}
+              />
+            )
           ) : activeSection.slug === 'employee-management' ? (
             <AdminEmployeeManager />
           ) : activeSection.slug === 'department-management' ? (

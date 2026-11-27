@@ -6,33 +6,88 @@ import { useAuth } from '../context/AuthContext'
 import { logout } from '../services/authService'
 import { employeeModuleService } from '../services/employeeModuleService'
 import { getPageBackgroundStyle } from '../config/pageBackgrounds'
-import type { DashboardOverview } from '../types/employeeModules'
+import type { DashboardOverview, MonthlyThought } from '../types/employeeModules'
+import type { EmployeeThirukkural } from '../types/thirukkural'
 
 const cards = [
   { title: 'ORGANIZATION BOARD', description: 'Leadership, teams and reporting structure', route: 'organization-board', icon: 'organization' },
   { title: 'DEPARTMENTS', description: 'Explore all company departments', route: 'departments', icon: 'departments' },
   { title: 'COMPANY ANNOUNCEMENTS', description: 'Official updates and company news', route: 'announcements', icon: 'announcements' },
-  { title: 'IMPORTANT NOTICES', description: 'Operational and employee instructions', route: 'notices', icon: 'notices' },
   { title: 'MEETING UPDATES', description: 'Schedules, agendas and meeting notes', route: 'meetings', icon: 'meetings' },
-  { title: 'QUICK ACCESS', description: 'Frequently used employee resources', route: 'quick-access', icon: 'quick' },
+  { title: 'INTERCOM EXTENSION NUMBERS', description: 'Frequently used employee resources', route: 'quick-access', icon: 'quick' },
   { title: 'IT SUPPORT', description: 'Submit and track support requests', route: 'it-support', icon: 'support' },
-  { title: 'LEAVE MANAGEMENT', description: 'Review available leave types', route: 'leave-management', icon: 'leave' },
   { title: 'COMPANY POLICIES', description: 'Review company policies and documents', route: 'policies', icon: 'policies' },
   { title: 'HOLIDAY LIST', description: 'View published holiday information', route: 'holidays', icon: 'holidays' },
 ]
 
+const dateFormatter = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+})
+
+const timeFormatter = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: true,
+})
+
 export default function EmployeeDashboard() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [currentDateTime, setCurrentDateTime] = useState(() => new Date())
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
   const [overview, setOverview] = useState<DashboardOverview | null>(null)
   const [overviewError, setOverviewError] = useState<string | null>(null)
+  const [monthlyThought, setMonthlyThought] = useState<MonthlyThought | null>(null)
+  const [thirukkural, setThirukkural] = useState<EmployeeThirukkural | null>(null)
 
   useEffect(() => {
     employeeModuleService.overview()
       .then(setOverview)
       .catch((error: unknown) => setOverviewError(error instanceof Error ? error.message : 'Dashboard statistics are unavailable.'))
+  }, [])
+
+  useEffect(() => {
+    employeeModuleService.monthlyThought()
+      .then(setMonthlyThought)
+      .catch(() => { /* silent — thought is optional */ })
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    let midnightTimer = 0
+    const refreshCouplet = async () => {
+      try {
+        const current = await employeeModuleService.thirukkural()
+        if (!active) return
+        setThirukkural(current)
+        window.clearTimeout(midnightTimer)
+        if (current?.nextChangeAt) {
+          const untilMidnight = Date.parse(current.nextChangeAt) - Date.now() + 150
+          midnightTimer = window.setTimeout(() => { void refreshCouplet() }, Math.max(0, untilMidnight))
+        }
+      } catch { /* no collection may be published yet; the interval retries */ }
+    }
+    void refreshCouplet()
+    const timer = window.setInterval(() => { void refreshCouplet() }, 60_000)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.clearTimeout(midnightTimer)
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentDateTime(new Date())
+    }, 1000)
+
+    return () => window.clearInterval(timer)
   }, [])
   const visibleCards = cards.filter((card) =>
     `${card.title} ${card.description}`.toLowerCase().includes(search.toLowerCase()),
@@ -51,11 +106,7 @@ export default function EmployeeDashboard() {
     <div className="dashboard">
       <header className="dashboard-header">
         <Link className="dashboard-brand" to="/employee" aria-label="KRR employee dashboard">
-          <img src="/images/KRR new logo.avif" alt="KRR Engineering Private Limited" />
-          <div className="dashboard-brand__identity">
-            <span>KRR ENGINEERING</span>
-            <img src="/images/arrow near the logo.jpeg" alt="" aria-hidden="true" />
-          </div>
+          <img src="/images/krr-engineering-logo.png" alt="KRR Engineering logo" />
         </Link>
 
         <div className="dashboard-header__actions">
@@ -71,9 +122,14 @@ export default function EmployeeDashboard() {
           <Link className="dashboard-icon-button" to="/employee/announcements" aria-label="View announcements" title="View announcements">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 00-12 0v5l-2 3h16l-2-3zM9 20h6" /></svg>
           </Link>
-          <time className="dashboard-date" dateTime={new Date().toISOString().slice(0, 10)}>
-            {new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date())}
-          </time>
+          <div className="dashboard-datetime">
+            <time className="dashboard-date" dateTime={currentDateTime.toISOString().slice(0, 10)}>
+              {dateFormatter.format(currentDateTime)}
+            </time>
+            <span className="dashboard-time" aria-live="off">
+              {timeFormatter.format(currentDateTime).toUpperCase()}
+            </span>
+          </div>
           <div className="dashboard-profile">
             <button
               className="dashboard-profile__button"
@@ -111,8 +167,23 @@ export default function EmployeeDashboard() {
         {overviewError && <p className="dashboard-data-error" role="status">{overviewError}</p>}
 
         <section className="dashboard-thoughts-link">
-          <div><p>MONTHLY INSPIRATION</p><h2>Thoughts for the Month</h2></div>
-          <Link to="/employee/thoughts">View this month’s thought <Chevron className="dashboard-card__chevron" /></Link>
+          <div className="dashboard-thoughts-header">
+            <p>MONTHLY INSPIRATION</p>
+            <h2>Thoughts for the Month</h2>
+          </div>
+          {thirukkural ? (
+            <div className="dashboard-thoughts-body">
+              <span className="dashboard-thoughts-meta">KURAL {thirukkural.kuralNumber} / 10</span>
+              <p className="dashboard-thoughts-message thirukkural-couplet" lang="ta" dir="auto">{thirukkural.line1}{'\n'}{thirukkural.line2}</p>
+            </div>
+          ) : monthlyThought && (
+            <div className="dashboard-thoughts-body">
+              <span className="dashboard-thoughts-meta">{monthlyThought.month} {monthlyThought.year}</span>
+              <p className="dashboard-thoughts-heading">{monthlyThought.heading}</p>
+              <p className="dashboard-thoughts-message">{monthlyThought.message}</p>
+              {monthlyThought.author && <small className="dashboard-thoughts-author">— {monthlyThought.author}</small>}
+            </div>
+          )}
         </section>
 
         <section className="dashboard-navigation" aria-labelledby="navigation-title">

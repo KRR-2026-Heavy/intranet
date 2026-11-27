@@ -16,13 +16,12 @@ const moduleNames: Record<string, string> = {
   meetings: 'Meeting Updates',
   'quick-access': 'Quick Access',
   'it-support': 'IT Support',
-  'leave-management': 'Leave Management',
   policies: 'Company Policies',
   holidays: 'Holiday List',
 }
 const contentModules: ModuleKey[] = [
   'announcements', 'thoughts', 'notices', 'meetings', 'quick-access',
-  'it-support', 'leave-management', 'policies', 'holidays',
+  'it-support', 'policies', 'holidays',
 ]
 
 export default function EmployeeModulePage() {

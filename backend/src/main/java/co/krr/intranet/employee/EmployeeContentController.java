@@ -4,7 +4,6 @@ import co.krr.intranet.content.ManagedContent;
 import co.krr.intranet.content.ManagedContentService;
 import co.krr.intranet.content.ManagedContentType;
 import co.krr.intranet.people.EmployeeManagementService;
-import co.krr.intranet.people.PersonNameFormatter;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -43,50 +42,6 @@ public class EmployeeContentController {
     @GetMapping("/departments")
     public List<EmployeeManagementService.EmployeeDepartment> departments() {
         return employeeManagementService.departmentsForEmployees();
-    }
-
-    @GetMapping("/organization")
-    public OrganizationBoard organization() {
-        return new OrganizationBoard(
-                List.of(
-                        new Person("Dr. Sakthivel Ramasamy", "Managing Director"),
-                        new Person("Mr. B. Prakash", "Vice President"),
-                        new Person("AVP - Mr. S. Karthikesan", "Associate Vice President"),
-                        new Person("Mr. R. Ganesh", "Chief Administrative Officer")),
-                List.of(
-                        new Team("Business Development", List.of(
-                                new Person("Dinesh Kumar", "AGM"),
-                                new Person("Sathishkumar C.", "Assistant Manager"),
-                                new Person("Ashwin Kumar P.", "Deputy Manager"),
-                                new Person("Deebesh V.", "Business Development Executive"),
-                                new Person("Karthick S.", "Digital Marketing Executive"))),
-                        new Team("System Development", List.of(
-                                new Person("Mr. K. Suresh", "Head"),
-                                new Person("Manikandan P.", "IT Executive"),
-                                new Person("Seeth Lakshmi S.", "Junior Executive, IT"),
-                                new Person("Selva Kantha S.", "IT Trainee"))),
-                        new Team("Proposal & Estimation – General Engineering: Head", List.of(
-                                new Person("Sathish Kumar", "General Manager"))),
-                        new Team("Proposal & Estimation – General Engineering: Team 1", List.of(
-                                new Person("Santhosh Kumar", "Senior Manager"),
-                                new Person("Madhan P.", "Senior Engineer"),
-                                new Person("Surya Prakash A.", "GET"),
-                                new Person("Vasikaran R.", "GET"),
-                                new Person("Sangavi S.", "CTRL S – Project & Procurement"))),
-                        new Team("Proposal & Estimation – General Engineering: Team 2", List.of(
-                                new Person("Vignesh Pandian R.I", "Manager"),
-                                new Person("Nithyanandham A.", "Engineer"),
-                                new Person("Pradeep K.", "GET"),
-                                new Person("Hariharan L.", "GET"))),
-                        new Team("Proposal & Estimation – General Engineering: Team 3", List.of(
-                                new Person("Arun Kumar S.", "Manager"),
-                                new Person("Shakil Ahamed M.", "Engineer"),
-                                new Person("Chitra T.", "Senior Engineer"))),
-                        new Team("Sales Team", List.of(
-                                new Person("Rajeswari R.", "Assistant Manager"),
-                                new Person("Tharun Raj M.", "Sales Trainee"),
-                                new Person("Priyadharsini", "Senior Executive"),
-                                new Person("Banumathi C.", "Sales Coordinator (Dished End)")))));
     }
 
     @GetMapping("/announcements")
@@ -232,13 +187,6 @@ public class EmployeeContentController {
 
     public record DashboardOverview(Integer employeeProfiles, int departments,
                                     int publishedAnnouncements, int currentMeetings) {}
-    public record Person(String name, String title) {
-        public Person {
-            name = PersonNameFormatter.format(name);
-        }
-    }
-    public record Team(String name, List<Person> people) {}
-    public record OrganizationBoard(List<Person> leadership, List<Team> teams) {}
     public record PublishedContent(String id, String title, String description, LocalDate date,
                                    LocalDate expiresOn, String department, String priority, boolean pinned) {}
     public record MonthlyThought(String month, int year, String heading, String message, String author) {}

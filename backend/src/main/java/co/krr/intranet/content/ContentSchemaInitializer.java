@@ -2,6 +2,8 @@ package co.krr.intranet.content;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
@@ -10,6 +12,7 @@ import java.sql.Statement;
 
 @Component
 public class ContentSchemaInitializer implements ApplicationRunner {
+    private static final Logger logger = LoggerFactory.getLogger(ContentSchemaInitializer.class);
     private static final String[] SCHEMA_STATEMENTS = {
             """
             IF OBJECT_ID(N'dbo.intranet_content', N'U') IS NULL
@@ -127,9 +130,12 @@ public class ContentSchemaInitializer implements ApplicationRunner {
     };
 
     private final SqlServerConnectionProvider connections;
+    private final ThirukkuralCollectionService thirukkuralCollectionService;
 
-    public ContentSchemaInitializer(SqlServerConnectionProvider connections) {
+    public ContentSchemaInitializer(SqlServerConnectionProvider connections,
+                                    ThirukkuralCollectionService thirukkuralCollectionService) {
         this.connections = connections;
+        this.thirukkuralCollectionService = thirukkuralCollectionService;
     }
 
     @Override
@@ -140,6 +146,106 @@ public class ContentSchemaInitializer implements ApplicationRunner {
             for (String schemaStatement : SCHEMA_STATEMENTS) {
                 statement.execute(schemaStatement);
             }
+            initializePolicyDocumentSchema(statement);
+            initializeThirukkuralSchema(statement);
+            initializeDailyThirukkuralSchema(statement);
+        }
+        thirukkuralCollectionService.migratePublishedLegacyCollection();
+    }
+
+    private void initializeDailyThirukkuralSchema(Statement statement) throws SQLException {
+        try {
+            statement.execute("""
+                    IF OBJECT_ID(N'dbo.intranet_thirukkural_daily_couplet', N'U') IS NULL
+                    CREATE TABLE dbo.intranet_thirukkural_daily_couplet (
+                        collection_id TINYINT NOT NULL,
+                        kural_number TINYINT NOT NULL,
+                        line1 NVARCHAR(MAX) NOT NULL,
+                        line2 NVARCHAR(MAX) NOT NULL,
+                        start_date DATE NOT NULL,
+                        CONSTRAINT pk_intranet_thirukkural_daily_couplet PRIMARY KEY (collection_id, kural_number),
+                        CONSTRAINT fk_intranet_thirukkural_daily_collection FOREIGN KEY (collection_id)
+                            REFERENCES dbo.intranet_thirukkural_collection(collection_id),
+                        CONSTRAINT ck_intranet_thirukkural_daily_number CHECK (kural_number BETWEEN 1 AND 10)
+                    );
+                    """);
+        } catch (SQLException exception) {
+            if (exception.getErrorCode() != 262) throw exception;
+            logger.warn("Daily Thirukkural storage could not be provisioned by the website database user. "
+                    + "Run backend/sql/provision-intranet-content.sql with a database owner account.");
+        }
+    }
+
+    private void initializeThirukkuralSchema(Statement statement) throws SQLException {
+        try {
+            statement.execute("""
+                    IF OBJECT_ID(N'dbo.intranet_thirukkural_collection', N'U') IS NULL
+                    CREATE TABLE dbo.intranet_thirukkural_collection (
+                        collection_id TINYINT NOT NULL CONSTRAINT pk_intranet_thirukkural_collection PRIMARY KEY,
+                        is_published BIT NOT NULL,
+                        current_index TINYINT NOT NULL,
+                        published_at_epoch_ms BIGINT NULL,
+                        next_advance_at_epoch_ms BIGINT NULL,
+                        updated_at DATETIME2 NOT NULL CONSTRAINT df_intranet_thirukkural_updated DEFAULT SYSUTCDATETIME(),
+                        CONSTRAINT ck_intranet_thirukkural_singleton CHECK (collection_id = 1),
+                        CONSTRAINT ck_intranet_thirukkural_index CHECK (current_index BETWEEN 0 AND 9)
+                    );
+                    """);
+            statement.execute("""
+                    IF OBJECT_ID(N'dbo.intranet_thirukkural_couplet', N'U') IS NULL
+                    CREATE TABLE dbo.intranet_thirukkural_couplet (
+                        collection_id TINYINT NOT NULL,
+                        sequence_number TINYINT NOT NULL,
+                        tamil_text NVARCHAR(MAX) NOT NULL,
+                        CONSTRAINT pk_intranet_thirukkural_couplet PRIMARY KEY (collection_id, sequence_number),
+                        CONSTRAINT fk_intranet_thirukkural_couplet_collection FOREIGN KEY (collection_id)
+                            REFERENCES dbo.intranet_thirukkural_collection(collection_id),
+                        CONSTRAINT ck_intranet_thirukkural_sequence CHECK (sequence_number BETWEEN 1 AND 10)
+                    );
+                    """);
+        } catch (SQLException exception) {
+            if (exception.getErrorCode() != 262) throw exception;
+            logger.warn("Thirukkural storage could not be provisioned by the website database user. "
+                    + "Run backend/sql/provision-intranet-content.sql with a database owner account.");
+        }
+    }
+
+    private void initializePolicyDocumentSchema(Statement statement) throws SQLException {
+        try {
+            statement.execute("""
+                    IF OBJECT_ID(N'dbo.intranet_policy_document', N'U') IS NULL
+                    BEGIN
+                        CREATE TABLE dbo.intranet_policy_document (
+                            id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                            section NVARCHAR(40) NOT NULL,
+                            title NVARCHAR(250) NOT NULL,
+                            description NVARCHAR(2000) NULL,
+                            original_file_name NVARCHAR(255) NOT NULL,
+                            media_type NVARCHAR(128) NOT NULL,
+                            file_size BIGINT NOT NULL,
+                            status NVARCHAR(16) NOT NULL CONSTRAINT df_intranet_policy_document_status DEFAULT N'DRAFT',
+                            file_data VARBINARY(MAX) NOT NULL,
+                            created_at DATETIME2 NOT NULL CONSTRAINT df_intranet_policy_document_created DEFAULT SYSUTCDATETIME(),
+                            updated_at DATETIME2 NOT NULL CONSTRAINT df_intranet_policy_document_updated DEFAULT SYSUTCDATETIME(),
+                            CONSTRAINT ck_intranet_policy_document_section CHECK
+                                (section IN (N'policies', N'procedure', N'committee', N'sops', N'process-flow-chart')),
+                            CONSTRAINT ck_intranet_policy_document_status CHECK (status IN (N'DRAFT', N'PUBLISHED')),
+                            CONSTRAINT ck_intranet_policy_document_size CHECK (file_size > 0 AND file_size <= 20971520)
+                        );
+                    END
+                    """);
+            statement.execute("""
+                    IF NOT EXISTS (
+                        SELECT 1 FROM sys.indexes
+                        WHERE object_id = OBJECT_ID(N'dbo.intranet_policy_document')
+                          AND name = N'ix_intranet_policy_document_section_status')
+                        CREATE INDEX ix_intranet_policy_document_section_status
+                            ON dbo.intranet_policy_document(section, status, created_at DESC);
+                    """);
+        } catch (SQLException exception) {
+            if (exception.getErrorCode() != 262) throw exception;
+            logger.warn("Policy document storage could not be provisioned by the website database user. "
+                    + "Run backend/sql/provision-intranet-content.sql with a database owner account.");
         }
     }
 }

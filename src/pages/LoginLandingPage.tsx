@@ -12,7 +12,7 @@ export default function LoginLandingPage() {
         <header className="login-brand">
           <img
             className="login-brand__logo"
-            src="/images/KRR new logo.avif"
+            src="/images/krr-engineering-logo.png"
             alt="KRR Engineering Private Limited"
           />
           <div className="login-brand__identity">

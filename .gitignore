@@ -1,6 +1,8 @@
 node_modules/
 dist/
 target/
+/backend/storage/
+/.maven-repository/
 .env
 .env.*
 !.env.example

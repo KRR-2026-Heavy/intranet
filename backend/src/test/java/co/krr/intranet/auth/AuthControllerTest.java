@@ -10,6 +10,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,8 +21,27 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 class AuthControllerTest {
+    private static final String[] FRONTEND_ORIGINS = {
+            "https://intranet-ezpy.vercel.app",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173"
+    };
+
     @Autowired
     private MockMvc mockMvc;
+
+    @Test
+    void allowsCredentialedCorsRequestsFromConfiguredFrontendOrigins() throws Exception {
+        for (String origin : FRONTEND_ORIGINS) {
+            mockMvc.perform(options("/api/auth/login")
+                            .header("Origin", origin)
+                            .header("Access-Control-Request-Method", "POST")
+                            .header("Access-Control-Request-Headers", "content-type"))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Access-Control-Allow-Origin", origin))
+                    .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+        }
+    }
 
     @Test
     void acceptsEmployeeAccessCodeAndPersistsSession() throws Exception {

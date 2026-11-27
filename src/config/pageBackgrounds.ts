@@ -20,7 +20,6 @@ const pageBackgrounds: Record<string, keyof typeof backgroundImages> = {
   'employee-module-meetings': 'background-three',
   'employee-module-quick-access': 'company-view',
   'employee-module-it-support': 'background-one',
-  'employee-module-leave-management': 'background-two',
   'employee-module-policies': 'background-three',
   'employee-module-holidays': 'company-view',
   'admin-dashboard-overview': 'background-one',

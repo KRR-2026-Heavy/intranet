@@ -19,21 +19,6 @@ export interface DashboardOverview {
   currentMeetings: number
 }
 
-export interface OrganizationPerson {
-  name: string
-  title: string
-}
-
-export interface OrganizationTeam {
-  name: string
-  people: OrganizationPerson[]
-}
-
-export interface OrganizationBoard {
-  leadership: OrganizationPerson[]
-  teams: OrganizationTeam[]
-}
-
 export interface PublishedContent {
   id: string
   title: string

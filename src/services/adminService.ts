@@ -10,6 +10,9 @@ import type {
   AdminEmployeeRequest,
   ManagedContentCategory,
 } from '../types/admin'
+import type { PolicyDocument, PolicyDocumentCollection, PolicyDocumentSectionKey, PolicyDocumentStatus } from '../types/policyDocuments'
+import type { OrganizationChartMetadata, OrganizationChartPage } from '../types/organizationCharts'
+import type { AdminThirukkuralCollection } from '../types/thirukkural'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ??
@@ -48,6 +51,36 @@ async function getCsrfToken(): Promise<string> {
   return payload.token
 }
 
+export async function getAdminOrganizationCharts(): Promise<OrganizationChartMetadata[]> {
+  const response = await request('/admin/organization-charts')
+  if (!response.ok) throw await responseMessage(response, 'Unable to load organization charts')
+  const charts = await response.json() as OrganizationChartMetadata[]
+  if (!Array.isArray(charts) || charts.length !== 2) {
+    throw new Error('The organization chart service returned an invalid response.')
+  }
+  return charts
+}
+
+export async function replaceAdminOrganizationChart(
+  page: OrganizationChartPage,
+  file: File,
+): Promise<OrganizationChartMetadata> {
+  const token = await getCsrfToken()
+  const form = new FormData()
+  form.append('file', file, file.name)
+  const response = await request(`/admin/organization-charts/${page}/file`, {
+    method: 'PUT',
+    headers: { 'X-XSRF-TOKEN': token },
+    body: form,
+  })
+  if (!response.ok) throw await responseMessage(response, `Chart ${page} could not be uploaded`)
+  return await response.json() as OrganizationChartMetadata
+}
+
+export function adminOrganizationChartFileUrl(page: OrganizationChartPage, download = false) {
+  return `${API_BASE_URL}/admin/organization-charts/${page}/file${download ? '?download=true' : ''}`
+}
+
 export async function getAdminOverview(): Promise<AdminDashboardOverview> {
   const response = await request('/admin/overview')
   if (!response.ok) {
@@ -58,6 +91,23 @@ export async function getAdminOverview(): Promise<AdminDashboardOverview> {
     throw new Error('The admin service returned an invalid dashboard response.')
   }
   return payload
+}
+
+export async function getAdminThirukkuralCollection(): Promise<AdminThirukkuralCollection> {
+  const response = await request('/admin/thirukkural-collection')
+  if (!response.ok) throw await responseMessage(response, 'Unable to load the Thirukkural collection')
+  return await response.json() as AdminThirukkuralCollection
+}
+
+export async function publishAdminThirukkuralCollection(couplets: Array<{ kuralNumber: number; line1: string; line2: string }>): Promise<AdminThirukkuralCollection> {
+  const token = await getCsrfToken()
+  const response = await request('/admin/thirukkural-collection', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': token },
+    body: JSON.stringify({ couplets }),
+  })
+  if (!response.ok) throw await responseMessage(response, 'Thirukkural couplets could not be published')
+  return await response.json() as AdminThirukkuralCollection
 }
 
 export async function getManagedContent(
@@ -111,6 +161,60 @@ export async function deleteManagedContent(
   if (!response.ok) {
     throw await responseMessage(response, 'Content could not be deleted')
   }
+}
+
+export async function getAdminPolicyDocuments(): Promise<PolicyDocumentCollection> {
+  const response = await request('/admin/policy-documents')
+  if (!response.ok) throw await responseMessage(response, 'Unable to load policy documents')
+  const payload = await response.json() as PolicyDocumentCollection
+  if (!payload || !Array.isArray(payload.items) || typeof payload.storageConfigured !== 'boolean') {
+    throw new Error('The policy document service returned an invalid collection.')
+  }
+  return payload
+}
+
+export interface PolicyDocumentFormData {
+  section: PolicyDocumentSectionKey
+  title: string
+  description: string
+  status: PolicyDocumentStatus
+  file: File | null
+}
+
+export async function saveAdminPolicyDocument(
+  documentId: number | null,
+  document: PolicyDocumentFormData,
+): Promise<PolicyDocument> {
+  const token = await getCsrfToken()
+  const form = new FormData()
+  form.append('section', document.section)
+  form.append('title', document.title)
+  form.append('description', document.description)
+  form.append('status', document.status)
+  if (document.file) form.append('file', document.file, document.file.name)
+  const response = await request(
+    documentId === null ? '/admin/policy-documents' : `/admin/policy-documents/${documentId}`,
+    {
+      method: documentId === null ? 'POST' : 'PUT',
+      headers: { 'X-XSRF-TOKEN': token },
+      body: form,
+    },
+  )
+  if (!response.ok) throw await responseMessage(response, 'Policy document could not be saved')
+  return await response.json() as PolicyDocument
+}
+
+export async function deleteAdminPolicyDocument(documentId: number): Promise<void> {
+  const token = await getCsrfToken()
+  const response = await request(`/admin/policy-documents/${documentId}`, {
+    method: 'DELETE',
+    headers: { 'X-XSRF-TOKEN': token },
+  })
+  if (!response.ok) throw await responseMessage(response, 'Policy document could not be deleted')
+}
+
+export function adminPolicyDocumentFileUrl(documentId: number, download = false) {
+  return `${API_BASE_URL}/admin/policy-documents/${documentId}/file${download ? '?download=true' : ''}`
 }
 
 export async function getAdminEmployees(): Promise<AdminEmployeeCollection> {

@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import Chevron from './Chevron'
 import DashboardIcon from './DashboardIcon'
+import PdfCanvasViewer from './PdfCanvasViewer'
 import { employeeModuleService } from '../services/employeeModuleService'
 import type {
   Holiday,
   Meeting,
   MonthlyThought,
-  EmployeePolicySection,
   PublishedContent,
 } from '../types/employeeModules'
+import type { EmployeeThirukkural } from '../types/thirukkural'
+import { POLICY_DOCUMENT_SECTIONS, type PolicyDocument, type PolicyDocumentSectionKey } from '../types/policyDocuments'
 
 export type ModuleKey =
   | 'announcements'
@@ -18,30 +19,10 @@ export type ModuleKey =
   | 'meetings'
   | 'quick-access'
   | 'it-support'
-  | 'leave-management'
   | 'policies'
   | 'holidays'
 
-const quickLinks = [
-  { title: 'IT Support', description: 'Get assistance through the official IT support form.', route: 'it-support', icon: 'support' },
-  { title: 'Company Policies', description: 'Read company policy information.', route: 'policies', icon: 'policies' },
-  { title: 'Holiday List', description: 'Review holidays published by HR / Administration.', route: 'holidays', icon: 'holidays' },
-  { title: 'Leave Management', description: 'Review available leave types.', route: 'leave-management', icon: 'leave' },
-  { title: 'Important Notices', description: 'Read operational and employee notices.', route: 'notices', icon: 'notices' },
-  { title: 'Meeting Updates', description: 'View meeting recurrence and published details.', route: 'meetings', icon: 'meetings' },
-  { title: 'Organization Board', description: 'Find supplied leadership and team information.', route: 'organization-board', icon: 'organization' },
-  { title: 'Departments', description: 'Browse all 16 company departments.', route: 'departments', icon: 'departments' },
-]
 
-const leaveTypes = [
-  { name: 'Casual Leave', description: 'Short-term time away for personal matters.' },
-  { name: 'Sick Leave', description: 'Time away from work due to illness or recovery.' },
-  { name: 'Earned Leave', description: 'Time off earned through service.' },
-  { name: 'Maternity Leave', description: 'Time away related to pregnancy and childbirth.' },
-  { name: 'Paternity Leave', description: 'Time away to support family after a birth.' },
-  { name: 'Compensatory Off', description: 'Time off in place of eligible additional work.' },
-  { name: 'Loss of Pay', description: 'Unpaid time away from work.' },
-]
 
 function displayContentDate(value: string) {
   const [year, month, day] = value.split('-').map(Number)
@@ -67,29 +48,26 @@ function contentDateParts(value: string | null) {
   return { year, month: month - 1 }
 }
 
-function policyText(policy: EmployeePolicySection) {
-  const content = policy.content.trim()
-  const effectiveDate = policy.effectiveDate && !/^Effective Date\s*:/im.test(content)
-    ? `Effective Date: ${policy.effectiveDate}`
-    : null
-  return [policy.title, effectiveDate, content].filter(Boolean).join('\n\n')
-}
-
-function useContent<T>(loader: () => Promise<T>, initial: T) {
+function useContent<T>(loader: () => Promise<T>, initial: T, refreshMs?: number) {
   const [data, setData] = useState<T>(initial)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
-    loader()
+    const refresh = () => loader()
       .then((result) => { if (active) setData(result) })
       .catch((reason: unknown) => {
         if (active) setError(reason instanceof Error ? reason.message : 'Unable to load this information.')
       })
       .finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
-  }, [loader])
+    void refresh()
+    const timer = refreshMs ? window.setInterval(() => { void refresh() }, refreshMs) : undefined
+    return () => {
+      active = false
+      if (timer) window.clearInterval(timer)
+    }
+  }, [loader, refreshMs])
 
   return { data, loading, error }
 }
@@ -180,12 +158,18 @@ function ContentList({ kind }: { kind: 'announcements' | 'notices' }) {
 
 function MonthlyThoughtPage() {
   const { data, loading, error } = useContent<MonthlyThought | null>(employeeModuleService.monthlyThought, null)
+  const thirukkural = useContent<EmployeeThirukkural | null>(employeeModuleService.thirukkural, null, 60_000)
   return (
     <section className="thoughts-page">
       <p className="thoughts-page__eyebrow">A MOMENT OF INSPIRATION</p>
       <h1>THOUGHTS FOR THE MONTH</h1>
-      {error && <p className="employee-error" role="alert">{error}</p>}
-      {loading ? <p className="employee-loading">Loading this month's thought…</p> : data ? (
+      {(error || thirukkural.error) && <p className="employee-error" role="alert">{error ?? thirukkural.error}</p>}
+      {loading || thirukkural.loading ? <p className="employee-loading">Loading this month's thought…</p> : thirukkural.data ? (
+        <article className="thought-card">
+          <span>KURAL {thirukkural.data.kuralNumber} / 10</span>
+          <p className="thirukkural-couplet" lang="ta" dir="auto">{thirukkural.data.line1}{'\n'}{thirukkural.data.line2}</p>
+        </article>
+      ) : data ? (
         <article className="thought-card">
           <span>{data.month} {data.year}</span><h2>{data.heading}</h2><p>{data.message}</p>
           {data.author && <small>— {data.author}</small>}
@@ -216,16 +200,180 @@ function MeetingsPage() {
   )
 }
 
+interface IntercomEntry {
+  sno: number
+  role: string
+  extension: string
+}
+
+interface DepartmentDirectory {
+  department: string
+  entries: IntercomEntry[]
+}
+
+const intercomDirectory: DepartmentDirectory[] = [
+  {
+    department: 'Management',
+    entries: [
+      { sno: 1, role: 'MD - Dr. Sakthivel Ramaswamy', extension: '100' },
+      { sno: 2, role: 'VP - Mr. B Prakash', extension: '101' },
+      { sno: 3, role: 'AVP - Mr. S Karthikesan', extension: '102' },
+      { sno: 4, role: 'CAO - Mr. R Ganesh', extension: '103' },
+    ],
+  },
+  {
+    department: 'Admin',
+    entries: [
+      { sno: 1, role: 'Secretary - VP / AVP', extension: '270' },
+      { sno: 2, role: 'Security (Main building)', extension: '220' },
+      { sno: 3, role: 'Pantry (Main building)', extension: '250' },
+      { sno: 4, role: 'Meeting Room (RM-1)', extension: '260' },
+    ],
+  },
+  {
+    department: 'Systems development',
+    entries: [
+      { sno: 1, role: 'Head Systems development - Mr. K Suresh', extension: '300' },
+      { sno: 2, role: 'IT Team', extension: '301' },
+      { sno: 3, role: 'QMS Team', extension: '310' },
+    ],
+  },
+  {
+    department: 'Business Development',
+    entries: [
+      { sno: 1, role: 'Business Development Team', extension: '432' },
+    ],
+  },
+  {
+    department: 'Sales & Proposal',
+    entries: [
+      { sno: 1, role: 'Head Sales and proposal - Mr.R Sathish kumar', extension: '400' },
+      { sno: 2, role: 'Proposal Team', extension: '401 / 402' },
+      { sno: 3, role: 'Sales - Mrs. R Rajeswari', extension: '421' },
+    ],
+  },
+  {
+    department: 'Design',
+    entries: [
+      { sno: 1, role: 'Head Design (GE) - Mr. S Marimuthu', extension: '500' },
+      { sno: 2, role: 'Design Team 1 - GE', extension: '501' },
+      { sno: 3, role: 'Design Team 2 - GE', extension: '502' },
+    ],
+  },
+  {
+    department: 'Project',
+    entries: [
+      { sno: 1, role: 'Head Project (GE) - Mr. G Karthik', extension: '600' },
+      { sno: 2, role: 'Project Team - GE', extension: '601' },
+      { sno: 3, role: 'Head Project (Site) - Mr. J Senthil Kumar', extension: '611' },
+      { sno: 4, role: 'Project Team - Site', extension: '612' },
+    ],
+  },
+  {
+    department: 'Planning',
+    entries: [
+      { sno: 1, role: 'Head Planning (GE) - Mr.K Vinoth', extension: '700' },
+      { sno: 2, role: 'Planning Team - GE', extension: '701' },
+      { sno: 3, role: 'Out sourcing (GE) - Mr. M Mohamed faizudeen', extension: '711' },
+    ],
+  },
+]
+
 function QuickAccessPage() {
+  const [search, setSearch] = useState('')
+
+  const filteredDirectory = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return intercomDirectory
+
+    return intercomDirectory
+      .map((dept) => {
+        const matchesDept = dept.department.toLowerCase().includes(q)
+        if (matchesDept) return dept
+
+        const matchedEntries = dept.entries.filter(
+          (entry) =>
+            entry.role.toLowerCase().includes(q) ||
+            entry.extension.toLowerCase().includes(q),
+        )
+
+        return matchedEntries.length > 0
+          ? { ...dept, entries: matchedEntries }
+          : null
+      })
+      .filter((dept): dept is DepartmentDirectory => dept !== null)
+  }, [search])
+
   return (
-    <section className="employee-module-section">
-      <div className="employee-module-heading"><div><p>EMPLOYEE RESOURCES</p><h1>Quick Access</h1></div></div>
-      <div className="quick-access-grid">
-        {quickLinks.map((item) => <Link className="dashboard-card" key={item.route} to={`/employee/${item.route}`}>
-          <DashboardIcon type={item.icon} className="dashboard-card__icon" />
-          <div className="dashboard-card__copy"><h3>{item.title}</h3><p>{item.description}</p></div>
-          <Chevron className="dashboard-card__chevron" />
-        </Link>)}
+    <section className="employee-module-section quick-access-page">
+      <div className="employee-module-heading quick-access-heading">
+        <div>
+          <p>EMPLOYEE RESOURCES</p>
+          <h1>INTERCOM EXTENSION NUMBERS</h1>
+        </div>
+        <div className="employee-module-filters">
+          <label className="employee-filter">
+            <span className="sr-only">Search intercom directory</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, role, extension..."
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="intercom-directory-card">
+        <div className="intercom-directory-card__top">
+          <div className="intercom-directory-badge">Main Building</div>
+          <p className="intercom-directory-hint">
+            Direct internal intercom extension numbers for departments and teams.
+          </p>
+        </div>
+
+        {filteredDirectory.length === 0 ? (
+          <div className="employee-empty">
+            No intercom extensions match &ldquo;{search}&rdquo;.
+          </div>
+        ) : (
+          <div className="intercom-table-container">
+            <table className="intercom-table">
+              <thead>
+                <tr>
+                  <th className="intercom-col-sno">#</th>
+                  <th className="intercom-col-name">Name / Designation / Team</th>
+                  <th className="intercom-col-ext">Intercom Ext.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDirectory.map((dept) => (
+                  <Fragment key={dept.department}>
+                    <tr className="intercom-dept-header">
+                      <td colSpan={3}>
+                        <div className="intercom-dept-title">
+                          <span>{dept.department}</span>
+                        </div>
+                      </td>
+                    </tr>
+                    {dept.entries.map((entry) => (
+                      <tr
+                        key={`${dept.department}-${entry.sno}-${entry.extension}`}
+                        className="intercom-entry-row"
+                      >
+                        <td className="intercom-col-sno">{entry.sno}</td>
+                        <td className="intercom-col-name">{entry.role}</td>
+                        <td className="intercom-col-ext">
+                          <span className="intercom-ext-badge">{entry.extension}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   )
@@ -235,95 +383,114 @@ function ITSupportPage() {
   return (
     <section className="employee-module-section">
       <div className="employee-module-heading"><div><p>HELP DESK</p><h1>IT Support</h1></div></div>
-      <article className="employee-content-card it-support-card">
-        <DashboardIcon type="support" className="it-support-card__icon" />
-        <div><h2>Submit an IT support request</h2>
-          <p>Use the official KRR Engineering IT support form to report an issue or request assistance.</p>
-          <a className="employee-primary-button" href="https://forms.gle/mcFYyvpKhGbsvtBJ8" target="_blank" rel="noopener noreferrer">
-            Open IT Support Form <Chevron className="employee-primary-button__chevron" />
-          </a>
-        </div>
-      </article>
-    </section>
-  )
-}
-
-function LeaveManagementPage() {
-  return (
-    <section className="employee-module-section">
-      <div className="employee-module-heading"><div><p>EMPLOYEE SERVICES</p><h1>Leave Management</h1></div></div>
-      <div className="leave-type-grid">
-        {leaveTypes.map((leave) => (
-          <article className="leave-type-card" key={leave.name}>
-            <h2>{leave.name}</h2>
-            <p>{leave.description}</p>
-          </article>
-        ))}
+      <div className="it-support-options">
+        <article className="employee-content-card it-support-card">
+          <DashboardIcon type="support" className="it-support-card__icon" />
+          <div><h2>Submit an IT support request</h2>
+            <p>Use the official KRR Engineering IT support form to report an issue or request assistance.</p>
+            <a className="employee-primary-button" href="https://forms.gle/mcFYyvpKhGbsvtBJ8" target="_blank" rel="noopener noreferrer">
+              Open IT Support Form <Chevron className="employee-primary-button__chevron" />
+            </a>
+          </div>
+        </article>
+        <article className="employee-content-card it-support-card">
+          <DashboardIcon type="support" className="it-support-card__icon" />
+          <div><h2>SAP Related Complaints</h2>
+            <p>Use the SAP support portal to submit or follow up on SAP-related complaints.</p>
+            <a className="employee-primary-button" href="https://group-ea.freshdesk.com/support/login" target="_blank" rel="noopener noreferrer">
+              Open SAP Support <Chevron className="employee-primary-button__chevron" />
+            </a>
+          </div>
+        </article>
       </div>
     </section>
   )
 }
 
 function PolicyPage() {
-  const { data, loading, error } = useContent(employeeModuleService.policy, null)
-  const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null)
-  const policies = data?.sections.map((policy, index) => ({
-    id: `${index}-${policy.title}`,
-    title: policy.title,
-    text: policyText(policy),
-  })) ?? []
-  const selectedPolicy = policies.find((policy) => policy.id === selectedPolicyId)
-
-  function downloadPolicy(text: string, id: string) {
-    const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }))
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `${id}.txt`
-    anchor.click()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
-
-  if (selectedPolicy) {
-    return (
-      <section className="employee-module-section policy-page">
-        <div className="policy-reading-toolbar">
-          <button className="policy-back-button" type="button" onClick={() => setSelectedPolicyId(null)}>
-            Back to policies
-          </button>
-          <div className="policy-actions">
-            <button type="button" onClick={() => window.print()}>Print</button>
-            <button type="button" onClick={() => downloadPolicy(selectedPolicy.text, selectedPolicy.id)}>Download</button>
-          </div>
-        </div>
-        <article className="policy-reading">
-          <pre>{selectedPolicy.text}</pre>
-        </article>
-      </section>
-    )
-  }
+  const { data, loading, error } = useContent(employeeModuleService.policyDocuments, {
+    storageConfigured: false,
+    items: [],
+    unavailableMessage: null,
+  })
+  const [activeSection, setActiveSection] = useState<PolicyDocumentSectionKey>('policies')
+  const [previewId, setPreviewId] = useState<number | null>(null)
+  const section = POLICY_DOCUMENT_SECTIONS.find((item) => item.key === activeSection)!
+  const sectionDocuments = data.items.filter((document) => document.section === activeSection)
+  const previewDocument = sectionDocuments.find((document) => document.id === previewId)
 
   return (
     <section className="employee-module-section policy-page">
       <div className="employee-module-heading"><div><p>COMPANY DOCUMENTS</p><h1>Company Policies</h1></div></div>
       {error && <p className="employee-error" role="alert">{error}</p>}
       {loading && <p className="employee-loading">Loading published policies…</p>}
-      {!loading && !error && policies.length === 0 && (
-        <p className="employee-empty">No company policies have been published.</p>
-      )}
-      {!loading && !error && policies.length > 0 && (
-        <div className="policy-card-list">
-          {policies.map((policy) => (
-            <button
-              className="policy-card"
-              key={policy.id}
-              type="button"
-              onClick={() => setSelectedPolicyId(policy.id)}
-            >
-              <span>{policy.title}</span>
-              <Chevron className="dashboard-card__chevron" />
-            </button>
-          ))}
-        </div>
+      {data.unavailableMessage && <p className="employee-state" role="status">{data.unavailableMessage}</p>}
+      {!loading && !error && (
+        <>
+          <nav className="policy-section-menu" aria-label="Company policy sections">
+            {POLICY_DOCUMENT_SECTIONS.map((item) => (
+              <button
+                className={`policy-section-menu__item${activeSection === item.key ? ' is-active' : ''}`}
+                key={item.key}
+                type="button"
+                onClick={() => { setActiveSection(item.key); setPreviewId(null) }}
+                aria-pressed={activeSection === item.key}
+              >
+                <span>{item.label}</span>
+                <span className="policy-section-menu__count">
+                  {data.items.filter((document) => document.section === item.key).length}
+                </span>
+              </button>
+            ))}
+          </nav>
+
+          <section className="policy-document-section" aria-labelledby="policy-document-section-title">
+            <h2 id="policy-document-section-title">{section.label}</h2>
+            {sectionDocuments.length === 0 ? (
+              <p className="employee-empty">No documents have been published in this section.</p>
+            ) : (
+              <div className="policy-document-list">
+                {sectionDocuments.map((document: PolicyDocument) => (
+                  <article className="policy-document-card" key={document.id}>
+                    <div className="policy-document-card__copy">
+                      <h3>{document.title}</h3>
+                      {document.description && <p>{document.description}</p>}
+                      <small>{document.originalFileName} · {Math.max(1, Math.round(document.fileSize / 1024))} KB</small>
+                    </div>
+                    <div className="policy-document-card__actions">
+                <button
+                  type="button"
+                  onClick={() => setPreviewId(previewId === document.id ? null : document.id)}
+                  aria-pressed={previewId === document.id}
+                >
+                  {previewId === document.id ? 'Close preview' : 'View'}
+                      </button>
+                      <a href={employeeModuleService.policyDocumentFileUrl(document.id, true)}>Download</a>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+
+            {previewDocument && (
+              <div className="policy-document-preview">
+                <h3>{previewDocument.title}</h3>
+                {previewDocument.mediaType.startsWith('image/') ? (
+                  <img src={employeeModuleService.policyDocumentFileUrl(previewDocument.id)} alt={previewDocument.title} />
+                ) : previewDocument.mediaType === 'application/pdf' ? (
+                  <PdfCanvasViewer
+                    sourceUrl={employeeModuleService.policyDocumentFileUrl(previewDocument.id)}
+                    downloadUrl={employeeModuleService.policyDocumentFileUrl(previewDocument.id, true)}
+                    fileName={previewDocument.originalFileName}
+                    onClose={() => setPreviewId(null)}
+                  />
+                ) : (
+                  <p>This file format opens in its associated application. <a href={employeeModuleService.policyDocumentFileUrl(previewDocument.id, true)}>Download {previewDocument.originalFileName}</a></p>
+                )}
+              </div>
+            )}
+          </section>
+        </>
       )}
     </section>
   )
@@ -385,7 +552,6 @@ export default function EmployeeModuleContent({ module }: { module: ModuleKey })
     case 'meetings': return <MeetingsPage />
     case 'quick-access': return <QuickAccessPage />
     case 'it-support': return <ITSupportPage />
-    case 'leave-management': return <LeaveManagementPage />
     case 'policies': return <PolicyPage />
     case 'holidays': return <HolidayPage />
   }

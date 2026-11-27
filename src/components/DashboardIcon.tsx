@@ -35,9 +35,6 @@ export default function DashboardIcon({ type, className = '' }: DashboardIconPro
   if (type === 'support') {
     return <svg {...common}><rect x="8" y="12" width="32" height="25" rx="2" /><path d="M17 12V8h14v4M8 20h32M19 30h10" /></svg>
   }
-  if (type === 'leave') {
-    return <svg {...common}><rect x="8" y="9" width="32" height="32" /><path d="M8 18h32M16 5v8M32 5v8M15 28l5 5 12-13" /></svg>
-  }
   if (type === 'policies') {
     return <svg {...common}><path d="M10 5h20l8 8v30H10zM30 5v10h8M16 21h16M16 28h16M16 35h10" /></svg>
   }
