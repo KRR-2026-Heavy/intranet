@@ -10,7 +10,14 @@ import type {
   PublishedContent,
 } from '../types/employeeModules'
 import type { EmployeeThirukkural } from '../types/thirukkural'
-import { POLICY_DOCUMENT_SECTIONS, type PolicyDocument, type PolicyDocumentSectionKey } from '../types/policyDocuments'
+import {
+  describePolicyFileType,
+  formatPolicyFileSize,
+  formatPolicyUpdatedAt,
+  POLICY_DOCUMENT_SECTIONS,
+  type PolicyDocument,
+  type PolicyDocumentSectionKey,
+} from '../types/policyDocuments'
 
 export type ModuleKey =
   | 'announcements'
@@ -450,42 +457,74 @@ function PolicyPage() {
               <p className="employee-empty">No documents have been published in this section.</p>
             ) : (
               <div className="policy-document-list">
-                {sectionDocuments.map((document: PolicyDocument) => (
-                  <article className="policy-document-card" key={document.id}>
-                    <div className="policy-document-card__copy">
-                      <h3>{document.title}</h3>
-                      {document.description && <p>{document.description}</p>}
-                      <small>{document.originalFileName} · {Math.max(1, Math.round(document.fileSize / 1024))} KB</small>
-                    </div>
-                    <div className="policy-document-card__actions">
-                <button
-                  type="button"
-                  onClick={() => setPreviewId(previewId === document.id ? null : document.id)}
-                  aria-pressed={previewId === document.id}
-                >
-                  {previewId === document.id ? 'Close preview' : 'View'}
-                      </button>
-                      <a href={employeeModuleService.policyDocumentFileUrl(document.id, true)}>Download</a>
-                    </div>
-                  </article>
-                ))}
+                {sectionDocuments.map((document: PolicyDocument) => {
+                  const fileTypeLabel = describePolicyFileType(document.originalFileName, document.mediaType)
+                  const fileSizeLabel = formatPolicyFileSize(document.fileSize)
+                  return (
+                    <article className="policy-document-card" key={document.id}>
+                      <div className="policy-document-card__copy">
+                        <div className="policy-document-card__meta">
+                          <span className="policy-document-type">{fileTypeLabel}</span>
+                          {document.content && document.originalFileName && (
+                            <span className="policy-document-type">Written content</span>
+                          )}
+                        </div>
+                        <h3>{document.title}</h3>
+                        {document.description && <p>{document.description}</p>}
+                        <small>
+                          {document.originalFileName
+                            ? `${document.originalFileName}${fileSizeLabel ? ` · ${fileSizeLabel}` : ''} · `
+                            : ''}
+                          Updated {formatPolicyUpdatedAt(document.updatedAt)}
+                        </small>
+                      </div>
+                      <div className="policy-document-card__actions">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewId(previewId === document.id ? null : document.id)}
+                          aria-pressed={previewId === document.id}
+                        >
+                          {previewId === document.id ? 'Close preview' : 'View'}
+                        </button>
+                        {document.originalFileName && (
+                          <a href={employeeModuleService.policyDocumentFileUrl(document.id, true)}>Download</a>
+                        )}
+                      </div>
+                    </article>
+                  )
+                })}
               </div>
             )}
 
             {previewDocument && (
               <div className="policy-document-preview">
-                <h3>{previewDocument.title}</h3>
-                {previewDocument.mediaType.startsWith('image/') ? (
-                  <img src={employeeModuleService.policyDocumentFileUrl(previewDocument.id)} alt={previewDocument.title} />
-                ) : previewDocument.mediaType === 'application/pdf' ? (
-                  <PdfCanvasViewer
-                    sourceUrl={employeeModuleService.policyDocumentFileUrl(previewDocument.id)}
-                    downloadUrl={employeeModuleService.policyDocumentFileUrl(previewDocument.id, true)}
-                    fileName={previewDocument.originalFileName}
-                    onClose={() => setPreviewId(null)}
-                  />
-                ) : (
-                  <p>This file format opens in its associated application. <a href={employeeModuleService.policyDocumentFileUrl(previewDocument.id, true)}>Download {previewDocument.originalFileName}</a></p>
+                <div className="policy-document-preview__header">
+                  <h3>{previewDocument.title}</h3>
+                  <button type="button" onClick={() => setPreviewId(null)}>Close</button>
+                </div>
+                {previewDocument.content && (
+                  <div className="policy-document-preview__content">
+                    <p>{previewDocument.content}</p>
+                  </div>
+                )}
+                {previewDocument.originalFileName && (
+                  previewDocument.mediaType?.startsWith('image/') ? (
+                    <img src={employeeModuleService.policyDocumentFileUrl(previewDocument.id)} alt={previewDocument.title} />
+                  ) : previewDocument.mediaType === 'application/pdf' ? (
+                    <PdfCanvasViewer
+                      sourceUrl={employeeModuleService.policyDocumentFileUrl(previewDocument.id)}
+                      downloadUrl={employeeModuleService.policyDocumentFileUrl(previewDocument.id, true)}
+                      fileName={previewDocument.originalFileName}
+                      onClose={() => setPreviewId(null)}
+                    />
+                  ) : (
+                    <p>
+                      This {describePolicyFileType(previewDocument.originalFileName, previewDocument.mediaType)} file opens in its associated application.{' '}
+                      <a href={employeeModuleService.policyDocumentFileUrl(previewDocument.id, true)}>
+                        Download {previewDocument.originalFileName}
+                      </a>
+                    </p>
+                  )
                 )}
               </div>
             )}

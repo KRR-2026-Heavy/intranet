@@ -9,3 +9,7 @@ target/
 *.log
 .DS_Store
 coverage/
+
+startup-error.txt
+
+startup-error.txt

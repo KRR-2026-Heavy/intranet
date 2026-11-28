@@ -3421,6 +3421,239 @@ h2 {
   color: #666;
 }
 
+/* ── Admin Policy 5-Box Layout ───────────────────────────────────── */
+.admin-policy-boxes {
+  display: grid;
+  gap: 20px;
+}
+
+.admin-policy-box {
+  border: 1px solid #dedede;
+  border-radius: 9px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.admin-policy-box__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 3px solid var(--krr-red);
+  background: #fff;
+}
+
+.admin-policy-box__title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-policy-box__chevron {
+  flex-shrink: 0;
+  width: 18px;
+  height: 22px;
+  color: var(--krr-red);
+}
+
+.admin-policy-box__header h2 {
+  margin: 0 0 2px;
+  color: #333;
+  font-size: 1rem;
+}
+
+.admin-policy-box__count {
+  margin: 0;
+  color: #777;
+  font-size: 0.78rem;
+}
+
+.admin-policy-box__empty {
+  margin: 0;
+  padding: 16px 20px;
+  color: #888;
+  font-size: 0.84rem;
+}
+
+.admin-policy-box__form {
+  margin: 0 20px 20px;
+  padding-top: 16px;
+  border-top: 3px solid var(--krr-red);
+}
+
+.admin-policy-box__form h3 {
+  margin: 0 0 14px;
+  color: var(--krr-red);
+  font-size: 1rem;
+}
+
+.admin-policy-doc-item {
+  margin: 0 20px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-policy-doc-item__main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+}
+
+.admin-policy-document__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.admin-policy-type-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #f0f0f0;
+  color: #555;
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+}
+
+.admin-managed-content-list {
+  padding: 12px 0;
+}
+
+.admin-policy-doc-item h3 {
+  margin: 0 0 5px;
+  color: #4a4a4a;
+  font-size: 0.9rem;
+}
+
+.admin-policy-btn-secondary {
+  background: #fff !important;
+  color: var(--krr-red) !important;
+  border-color: var(--krr-red) !important;
+}
+
+.admin-policy-btn-danger {
+  background: #fff !important;
+  color: #c0392b !important;
+  border-color: #c0392b !important;
+}
+
+.admin-policy-inline-panel {
+  padding: 14px;
+  border: 1px dashed #ccc;
+  border-radius: 7px;
+  background: #fafafa;
+  width: 100%;
+}
+
+.admin-policy-inline-panel__label {
+  display: grid;
+  gap: 8px;
+  color: #5b5b5b;
+  font-size: 0.8rem;
+  font-weight: 750;
+  margin-bottom: 10px;
+}
+
+.admin-policy-confirm-delete {
+  padding: 12px 14px;
+  border: 1px solid #f5c6c6;
+  border-radius: 7px;
+  background: #fff8f8;
+  width: 100%;
+}
+
+.admin-policy-confirm-delete p {
+  margin: 0 0 10px;
+  color: #c0392b;
+  font-size: 0.84rem;
+}
+
+.admin-policy-preview__written {
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 14px;
+  background: #fafafa;
+}
+
+.admin-policy-preview__written h4 {
+  margin: 0 0 8px;
+  color: #555;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.admin-policy-preview__written p {
+  margin: 0;
+  color: #444;
+  white-space: pre-wrap;
+}
+
+.admin-policy-preview__download {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--krr-red);
+  border-radius: 5px;
+  background: var(--krr-red);
+  color: #fff;
+  font-size: 0.77rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+/* ── Employee policy page tweaks for nullable files ──────────────── */
+.policy-document-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.policy-document-type {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #f0f4ff;
+  color: #2a4a9c;
+  font-size: 0.65rem;
+  font-weight: 750;
+}
+
+.policy-document-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.policy-document-preview__header h3 {
+  margin: 0;
+  color: #4a4a4a;
+  font-size: 1rem;
+}
+
+.policy-document-preview__content {
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 14px;
+  background: #fafafa;
+  margin-bottom: 12px;
+}
+
+.policy-document-preview__content p {
+  margin: 0;
+  color: #444;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
 @media (max-width: 1050px) {
   .admin-portal {
     grid-template-columns: 240px minmax(0, 1fr);

@@ -177,6 +177,7 @@ export interface PolicyDocumentFormData {
   section: PolicyDocumentSectionKey
   title: string
   description: string
+  content: string
   status: PolicyDocumentStatus
   file: File | null
 }
@@ -190,6 +191,7 @@ export async function saveAdminPolicyDocument(
   form.append('section', document.section)
   form.append('title', document.title)
   form.append('description', document.description)
+  form.append('content', document.content)
   form.append('status', document.status)
   if (document.file) form.append('file', document.file, document.file.name)
   const response = await request(
@@ -201,6 +203,39 @@ export async function saveAdminPolicyDocument(
     },
   )
   if (!response.ok) throw await responseMessage(response, 'Policy document could not be saved')
+  return await response.json() as PolicyDocument
+}
+
+export async function replaceAdminPolicyDocumentFile(
+  documentId: number,
+  file: File,
+): Promise<PolicyDocument> {
+  const token = await getCsrfToken()
+  const form = new FormData()
+  form.append('file', file, file.name)
+  const response = await request(`/admin/policy-documents/${documentId}/file`, {
+    method: 'PUT',
+    headers: { 'X-XSRF-TOKEN': token },
+    body: form,
+  })
+  if (!response.ok) throw await responseMessage(response, 'Policy document file could not be replaced')
+  return await response.json() as PolicyDocument
+}
+
+export async function updateAdminPolicyDocumentStatus(
+  documentId: number,
+  status: PolicyDocumentStatus,
+): Promise<PolicyDocument> {
+  const token = await getCsrfToken()
+  const response = await request(`/admin/policy-documents/${documentId}/status`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-XSRF-TOKEN': token,
+    },
+    body: JSON.stringify({ status }),
+  })
+  if (!response.ok) throw await responseMessage(response, 'Policy document status could not be updated')
   return await response.json() as PolicyDocument
 }
 

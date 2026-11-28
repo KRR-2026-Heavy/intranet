@@ -1,15 +1,15 @@
-USE [KRRIntranet];
+USE [intranet];
 SET XACT_ABORT ON;
 
-DECLARE @WebsiteDatabaseUser sysname = N'krr_website';
+DECLARE @WebsiteDatabaseUser sysname = N'intranet_user';
 
 -- Use the database principal mapped to the website SQL login. When connected as
 -- that login, SELECT USER_NAME() returns the value needed here.
-IF DB_NAME() <> N'KRRIntranet'
-    THROW 51000, 'Run this script only in the KRRIntranet database.', 1;
+IF DB_NAME() <> N'intranet'
+    THROW 51000, 'Run this script only in the intranet database.', 1;
 
 IF DATABASE_PRINCIPAL_ID(@WebsiteDatabaseUser) IS NULL
-    THROW 51002, 'The database user krr_website does not exist in KRRIntranet.', 1;
+    THROW 51002, 'The database user intranet_user does not exist in intranet.', 1;
 
 BEGIN TRY
     BEGIN TRANSACTION;

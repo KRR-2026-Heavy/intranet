@@ -6,8 +6,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.Locale;
@@ -24,7 +22,7 @@ public class PolicyDocumentFileValidator {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a non-empty document to upload.");
         }
         if (upload.getSize() > MAX_FILE_SIZE) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Policy files cannot exceed 20 MB.");
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File is too large. Policy files cannot exceed 20 MB.");
         }
 
         String filename = sanitizeFilename(upload.getOriginalFilename());
@@ -40,7 +38,7 @@ public class PolicyDocumentFileValidator {
         if (!matchesFormat(extension, bytes)) {
             throw new ResponseStatusException(
                     HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-                    "The uploaded file content does not match its supported file extension.");
+                    "The uploaded file content does not match its file extension.");
         }
         return new ValidatedFile(filename, mediaType, bytes);
     }
@@ -66,8 +64,7 @@ public class PolicyDocumentFileValidator {
             throw unsupportedType();
         }
         String extension = filename.substring(dot + 1).toLowerCase(Locale.ROOT);
-        if (!Set.of("pdf", "png", "jpg", "jpeg", "gif", "webp", "doc", "docx", "xls", "xlsx",
-                "ppt", "pptx", "txt", "csv", "rtf").contains(extension)) {
+        if (!Set.of("pdf", "png", "jpg", "jpeg", "doc", "docx", "xls", "xlsx", "ppt", "pptx").contains(extension)) {
             throw unsupportedType();
         }
         return extension;
@@ -78,17 +75,12 @@ public class PolicyDocumentFileValidator {
             case "pdf" -> "application/pdf";
             case "png" -> "image/png";
             case "jpg", "jpeg" -> "image/jpeg";
-            case "gif" -> "image/gif";
-            case "webp" -> "image/webp";
             case "doc" -> "application/msword";
             case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
             case "xls" -> "application/vnd.ms-excel";
             case "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             case "ppt" -> "application/vnd.ms-powerpoint";
             case "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-            case "txt" -> "text/plain; charset=UTF-8";
-            case "csv" -> "text/csv; charset=UTF-8";
-            case "rtf" -> "application/rtf";
             default -> throw unsupportedType();
         };
     }
@@ -98,17 +90,11 @@ public class PolicyDocumentFileValidator {
             case "pdf" -> startsWith(bytes, "%PDF-".getBytes(StandardCharsets.US_ASCII));
             case "png" -> startsWith(bytes, new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a});
             case "jpg", "jpeg" -> startsWith(bytes, new byte[]{(byte) 0xff, (byte) 0xd8, (byte) 0xff});
-            case "gif" -> startsWith(bytes, "GIF87a".getBytes(StandardCharsets.US_ASCII))
-                    || startsWith(bytes, "GIF89a".getBytes(StandardCharsets.US_ASCII));
-            case "webp" -> bytes.length >= 12 && startsWith(bytes, "RIFF".getBytes(StandardCharsets.US_ASCII))
-                    && new String(bytes, 8, 4, StandardCharsets.US_ASCII).equals("WEBP");
             case "doc", "xls", "ppt" -> startsWith(bytes,
                     new byte[]{(byte) 0xd0, (byte) 0xcf, 0x11, (byte) 0xe0, (byte) 0xa1, (byte) 0xb1, 0x1a, (byte) 0xe1});
             case "docx" -> isOfficeZip(bytes, "word/document.xml");
             case "xlsx" -> isOfficeZip(bytes, "xl/workbook.xml");
             case "pptx" -> isOfficeZip(bytes, "ppt/presentation.xml");
-            case "txt", "csv" -> isUtf8Text(bytes);
-            case "rtf" -> startsWith(bytes, "{\\rtf".getBytes(StandardCharsets.US_ASCII));
             default -> false;
         };
     }
@@ -136,19 +122,6 @@ public class PolicyDocumentFileValidator {
         }
     }
 
-    private boolean isUtf8Text(byte[] bytes) {
-        try {
-            StandardCharsets.UTF_8.newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(bytes));
-            for (byte value : bytes) if (value == 0) return false;
-            return true;
-        } catch (java.nio.charset.CharacterCodingException exception) {
-            return false;
-        }
-    }
-
     private boolean startsWith(byte[] value, byte[] prefix) {
         if (value.length < prefix.length) return false;
         for (int index = 0; index < prefix.length; index++) {
@@ -160,7 +133,7 @@ public class PolicyDocumentFileValidator {
     private ResponseStatusException unsupportedType() {
         return new ResponseStatusException(
                 HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-                "Use a PDF, image, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT, CSV, or RTF file.");
+                "Unsupported file type. Upload only PDF, Word (DOC/DOCX), Excel (XLS/XLSX), PowerPoint (PPT/PPTX), or JPG/PNG images.");
     }
 
     public record ValidatedFile(String filename, String mediaType, byte[] bytes) {}

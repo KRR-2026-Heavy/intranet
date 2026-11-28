@@ -39,10 +39,11 @@ public class AdminPolicyDocumentController {
             @RequestParam("section") @NotBlank String section,
             @RequestParam("title") @NotBlank String title,
             @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "content", required = false) String content,
             @RequestParam("status") @NotBlank String status,
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam(value = "file", required = false) MultipartFile file) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(documents.create(section, title, description, status, file));
+                .body(documents.create(section, title, description, content, status, file));
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -51,10 +52,27 @@ public class AdminPolicyDocumentController {
             @RequestParam("section") @NotBlank String section,
             @RequestParam("title") @NotBlank String title,
             @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "content", required = false) String content,
             @RequestParam("status") @NotBlank String status,
             @RequestParam(value = "file", required = false) MultipartFile file) {
-        return documents.update(id, section, title, description, status, file);
+        return documents.update(id, section, title, description, content, status, file);
     }
+
+    @PutMapping(value = "/{id}/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public PolicyDocumentService.PolicyDocument replaceFile(
+            @PathVariable long id,
+            @RequestParam("file") MultipartFile file) {
+        return documents.replaceFile(id, file);
+    }
+
+    @PutMapping("/{id}/status")
+    public PolicyDocumentService.PolicyDocument updateStatus(
+            @PathVariable long id,
+            @org.springframework.web.bind.annotation.RequestBody StatusUpdateRequest request) {
+        return documents.updateStatus(id, request == null ? null : request.status());
+    }
+
+    public record StatusUpdateRequest(String status) {}
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable long id) {

@@ -1,4 +1,4 @@
-USE [KRRIntranet];
+USE [intranet];
 SET ANSI_NULLS ON;
 SET ANSI_PADDING ON;
 SET ANSI_WARNINGS ON;
@@ -8,8 +8,8 @@ SET QUOTED_IDENTIFIER ON;
 SET NUMERIC_ROUNDABORT OFF;
 SET XACT_ABORT ON;
 
-IF DB_NAME() <> N'KRRIntranet'
-    THROW 51020, 'Run this script only in the KRRIntranet database.', 1;
+IF DB_NAME() <> N'intranet'
+    THROW 51020, 'Run this script only in the intranet database.', 1;
 
 IF OBJECT_ID(N'dbo.intranet_content', N'U') IS NULL
    OR OBJECT_ID(N'dbo.intranet_employee', N'U') IS NULL

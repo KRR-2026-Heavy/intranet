@@ -220,18 +220,52 @@ public class ContentSchemaInitializer implements ApplicationRunner {
                             section NVARCHAR(40) NOT NULL,
                             title NVARCHAR(250) NOT NULL,
                             description NVARCHAR(2000) NULL,
-                            original_file_name NVARCHAR(255) NOT NULL,
-                            media_type NVARCHAR(128) NOT NULL,
-                            file_size BIGINT NOT NULL,
+                            content NVARCHAR(MAX) NULL,
+                            original_file_name NVARCHAR(255) NULL,
+                            media_type NVARCHAR(128) NULL,
+                            file_size BIGINT NULL,
                             status NVARCHAR(16) NOT NULL CONSTRAINT df_intranet_policy_document_status DEFAULT N'DRAFT',
-                            file_data VARBINARY(MAX) NOT NULL,
+                            file_data VARBINARY(MAX) NULL,
                             created_at DATETIME2 NOT NULL CONSTRAINT df_intranet_policy_document_created DEFAULT SYSUTCDATETIME(),
                             updated_at DATETIME2 NOT NULL CONSTRAINT df_intranet_policy_document_updated DEFAULT SYSUTCDATETIME(),
                             CONSTRAINT ck_intranet_policy_document_section CHECK
                                 (section IN (N'policies', N'procedure', N'committee', N'sops', N'process-flow-chart')),
                             CONSTRAINT ck_intranet_policy_document_status CHECK (status IN (N'DRAFT', N'PUBLISHED')),
-                            CONSTRAINT ck_intranet_policy_document_size CHECK (file_size > 0 AND file_size <= 20971520)
+                            CONSTRAINT ck_intranet_policy_document_size CHECK (
+                                (file_size IS NULL AND file_data IS NULL AND original_file_name IS NULL AND media_type IS NULL)
+                                OR (file_size > 0 AND file_size <= 20971520 AND file_data IS NOT NULL AND original_file_name IS NOT NULL AND media_type IS NOT NULL)
+                            ),
+                            CONSTRAINT ck_intranet_policy_document_payload CHECK (
+                                (content IS NOT NULL AND LEN(LTRIM(RTRIM(content))) > 0)
+                                OR file_data IS NOT NULL
+                            )
                         );
+                    END
+                    """);
+            statement.execute("""
+                    IF COL_LENGTH(N'dbo.intranet_policy_document', N'content') IS NULL
+                    BEGIN
+                        ALTER TABLE dbo.intranet_policy_document ADD content NVARCHAR(MAX) NULL;
+                        ALTER TABLE dbo.intranet_policy_document ALTER COLUMN original_file_name NVARCHAR(255) NULL;
+                        ALTER TABLE dbo.intranet_policy_document ALTER COLUMN media_type NVARCHAR(128) NULL;
+                        ALTER TABLE dbo.intranet_policy_document ALTER COLUMN file_size BIGINT NULL;
+                        ALTER TABLE dbo.intranet_policy_document ALTER COLUMN file_data VARBINARY(MAX) NULL;
+                        IF EXISTS (
+                            SELECT 1 FROM sys.check_constraints
+                            WHERE parent_object_id = OBJECT_ID(N'dbo.intranet_policy_document')
+                              AND name = N'ck_intranet_policy_document_size')
+                            ALTER TABLE dbo.intranet_policy_document DROP CONSTRAINT ck_intranet_policy_document_size;
+                        ALTER TABLE dbo.intranet_policy_document WITH CHECK
+                        ADD CONSTRAINT ck_intranet_policy_document_size CHECK (
+                            (file_size IS NULL AND file_data IS NULL AND original_file_name IS NULL AND media_type IS NULL)
+                            OR (file_size > 0 AND file_size <= 20971520 AND file_data IS NOT NULL AND original_file_name IS NOT NULL AND media_type IS NOT NULL)
+                        );
+                        EXEC sys.sp_executesql N'
+                            ALTER TABLE dbo.intranet_policy_document WITH CHECK
+                            ADD CONSTRAINT ck_intranet_policy_document_payload CHECK (
+                                (content IS NOT NULL AND LEN(LTRIM(RTRIM(content))) > 0)
+                                OR file_data IS NOT NULL
+                            );';
                     END
                     """);
             statement.execute("""
